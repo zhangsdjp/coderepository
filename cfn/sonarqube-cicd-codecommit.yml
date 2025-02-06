@@ -1,9 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: CodePipeline For superset data collector
 # Stack name: sonarqube-cicd-stack
-# AWS Developer Tools > Settings > Connections, create github connection at first.
-# https://docs.aws.amazon.com/codepipeline/latest/userguide/connections-github.html
-# https://qiita.com/hakoda_fumiko/items/e4db2ad5a1379c1f5ead
 # ------------------------------------------------------------#
 # Parameters
 # ------------------------------------------------------------#
@@ -29,18 +26,6 @@ Parameters:
     Type: String
     Default: cfn/sonarqube-ec2.yml
     Description: Build Output Template Filename    
-
-  # github parameter
-  GithubConnectionArn:
-    Type: String
-    Default: "arn:aws:codeconnections:ap-northeast-1:588322030717:connection/541c4914-e54f-4e26-a922-206cfcf02e93"
-  GitHubRepo:
-    Type: String
-    Default: "zhangsdjp/coderepository"
-  GitHubBranch:
-    Type: String
-    Default: main    
-
 
 
 # ------------------------------------------------------------#
@@ -350,7 +335,7 @@ Resources:
         Type: LINUX_CONTAINER
 
 
-  # # CodeBuild-Project, to update batch job within this build, no deploy stage needed.
+  # # CodeBuild-Project
   # CodeBuildDeployProject:
   #   Type: AWS::CodeBuild::Project
   #   Properties:
@@ -505,49 +490,32 @@ Resources:
       Stages:
         - Name: Source
           Actions:
-            - InputArtifacts: []
-              Name: Github
+            - Name: Settings
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: 1
-                Provider: CodeStarSourceConnection
+                Version: '1'
+                Provider: CodeCommit
+              Configuration:
+                RepositoryName: !Ref CodeCommitRepositorySettings
+                PollForSourceChanges: false
+                BranchName: master
+              RunOrder: 1
               OutputArtifacts:
                 - Name: App01
-              Configuration:
-                FullRepositoryId: !Ref GitHubRepo
-                ConnectionArn: !Ref GithubConnectionArn
-                BranchName: !Ref GitHubBranch
-                DetectChanges: false
-              RunOrder: 1
-
-            # CodeCommitがあった時に必要だったもの          
-            # - Name: Settings
+            # - Name: Source
             #   ActionTypeId:
             #     Category: Source
             #     Owner: AWS
             #     Version: '1'
             #     Provider: CodeCommit
             #   Configuration:
-            #     RepositoryName: !Ref CodeCommitRepositorySettings
+            #     RepositoryName: !Ref CodeCommitRepository
             #     PollForSourceChanges: false
             #     BranchName: master
             #   RunOrder: 1
             #   OutputArtifacts:
-            #     - Name: App01
-            # # - Name: Source
-            # #   ActionTypeId:
-            # #     Category: Source
-            # #     Owner: AWS
-            # #     Version: '1'
-            # #     Provider: CodeCommit
-            # #   Configuration:
-            # #     RepositoryName: !Ref CodeCommitRepository
-            # #     PollForSourceChanges: false
-            # #     BranchName: master
-            # #   RunOrder: 1
-            # #   OutputArtifacts:
-            # #     - Name: App02
+            #     - Name: App02
 
         - Name: Build
           Actions:

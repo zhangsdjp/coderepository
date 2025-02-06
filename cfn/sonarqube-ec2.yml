@@ -158,17 +158,17 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 116.65.80.215/32  # Zhang's J:Com
-        # https - cice test
-        - IpProtocol: tcp
-          FromPort: 8443
-          ToPort: 8443
-          CidrIp: 116.65.80.215/32  # Zhang's J:Com
+        # # https - cicd test
+        # - IpProtocol: tcp
+        #   FromPort: 8443
+        #   ToPort: 8443
+        #   CidrIp: 116.65.80.215/32  # Zhang's J:Com
 
 
-Outputs:
-  EC2PublicIP:
-    Value: !GetAtt EC2.PublicIp
-    Description: Public IP of EC2 instance
+# Outputs:
+#   EC2PublicIP:
+#     Value: !GetAtt EC2.PublicIp
+#     Description: Public IP of EC2 instance
 
 
 
