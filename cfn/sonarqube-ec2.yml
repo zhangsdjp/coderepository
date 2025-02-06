@@ -1,0 +1,174 @@
+# Stackn ame: sonarqube-ec2-stack
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cloudformation to create SonarQube, Jenkins EC2
+
+# Parameters
+Parameters: 
+  Env: 
+    Description: The env prefix
+    Type: String 
+    Default: dev
+    AllowedValues: 
+      - dev 
+      - stg 
+      - prod 
+  Region: 
+    Description: "Region Name" 
+    Type: String 
+    Default: ap-northeast-1 
+  LowerEnv:
+    Description: The env prefix lowercase
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev 
+      - stg 
+      - prod 
+
+  # KeyPair:
+  #   Description: The EC2 Key Pair to allow SSH access to the instance
+  #   Type: "AWS::EC2::KeyPair::KeyName"
+  #   Default: "sonar-key"
+
+  AllowIP:
+    Description: IP address allowed to access EC2
+    Type: String
+    Default: 0.0.0.0/0
+
+
+# Resources
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: sonarqube-vpc
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: igw
+
+  # IGWをVPCにアタッチ
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IGW
+
+  PubSub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      Tags:
+        - Key: Name
+          Value: pub-subnet-1a
+
+  PubSubRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: pub-subnet-1a-rt
+
+  # PubSub-インターネット間のルーティング
+  PubSubToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PubSubRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+
+  # ルートテーブルをサブネットに関連付け
+  AssoPubSubRT:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PubSub
+      RouteTableId: !Ref PubSubRT
+
+
+  KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: SonarKeyPair
+      KeyFormat: ppk
+      KeyType: ed25519 # rsa | ed25519
+      Tags:
+        - Key: Name
+          Value: SonarKeyPair
+      # PublicKeyMaterial: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICfp1F7DhdWZdqkYAUGCzcBsLmJeu9izpIyGpmmg7eCz example
+      # key_pair_id: get from EC2 > Key Pair
+      # the private key is stored in System Manager Parameter Store: /ec2/keypair/{key_pair_id}
+
+  EC2: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-0ae308a12ef304512  # ami-044d13daae3ede6a5, 10.7.0.0 # ami-06b49900fe546b239 bitnami 9.9.7-0, ami-02a10050aed103003 (community), ami-0a8a8b773c9311696
+      KeyName: !Ref KeyPair
+      InstanceType: t2.medium
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          SubnetId: !Ref PubSub
+          GroupSet:
+            - !Ref EC2SG
+      UserData: !Base64 |
+        #!/bin/bash
+        sudo yum install -y git
+      Tags:
+          - Key: Name
+            Value: SonarQubeEC2
+
+  EC2SG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: WebServerSG
+      GroupDescription: Allow SSH and HTTP access only from AllowIP
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # http
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref AllowIP
+        # https
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref AllowIP
+        # SonarQube
+        - IpProtocol: tcp
+          FromPort: 9000
+          ToPort: 9000
+          CidrIp: !Ref AllowIP
+        # Jenkins
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: !Ref AllowIP          
+        # ssh
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 116.65.80.215/32  # Zhang's J:Com
+        # https - cice test
+        - IpProtocol: tcp
+          FromPort: 8443
+          ToPort: 8443
+          CidrIp: 116.65.80.215/32  # Zhang's J:Com
+
+
+Outputs:
+  EC2PublicIP:
+    Value: !GetAtt EC2.PublicIp
+    Description: Public IP of EC2 instance
+
+
+
