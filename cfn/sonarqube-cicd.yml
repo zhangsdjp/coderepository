@@ -39,8 +39,10 @@ Parameters:
     Default: "zhangsdjp/coderepository"
   GitHubBranch:
     Type: String
-    Default: main    
-
+    Default: main
+  SourceActionName:
+    Type: String
+    Default: Github
 
 
 # ------------------------------------------------------------#
@@ -626,3 +628,48 @@ Resources:
               OutputArtifacts: []
               RunOrder: 3
 
+      # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html#cfn-codepipeline-pipeline-triggers
+      Triggers:
+        - ProviderType: CodeStarSourceConnection
+          GitConfiguration:
+            Push:
+              - Tags:
+                  Excludes:
+                    - beta-*
+                  Includes:
+                    - release*
+              - Branches:
+                  Excludes:
+                    - beta-*
+                  Includes:
+                    - main
+                    - release*
+                FilePaths:
+                  Includes:
+                    - cfn/**
+                    - cicd/**
+                    - ./**
+                  Excludes:
+                    - '**/README.md'
+                    - '**/LICENSE'
+                    - '**/CONTRIBUTING.md'
+            PullRequest:
+              - Branches:
+                  Excludes:
+                    - stable-v1-*
+                  Includes:
+                    - stable-*
+                    - release*
+                    - main
+                FilePaths:
+                  Includes:
+                    - cfn/**
+                    - cicd/**
+                    - ./**
+                  Excludes:
+                    - '**/README.md'
+                    - '**/LICENSE'
+                    - '**/CONTRIBUTING.md'
+                Events:
+                  - CLOSED
+            SourceActionName: !Ref SourceActionName
